@@ -1,27 +1,47 @@
-import express from "express";
+import express, { Request, Response } from "express";
 import bodyParser from "body-parser";
-import { Agent } from "@superdapp/agents";
-import dotenv from "dotenv";
-
-dotenv.config();
+import { configDotenv } from "dotenv";
+configDotenv();
 const app = express();
+
 app.use(bodyParser.json());
 
-const PORT = process.env.PORT || 4000;
-
-// Initialize SuperDapp Agent
-const agent = new Agent({ apiKey: process.env.SUPERDAPP_API_KEY! });
-
-app.post("/webhook", async (req, res) => {
-  try {
-    await agent.processRequest(req.body);
-    res.sendStatus(200);
-  } catch (err) {
-    console.error("Agent failed:", err);
-    res.sendStatus(500);
-  }
+app.get("/health", (_req: Request, res: Response) => {
+  res.json({ status: "healthy" });
 });
 
+app.post("/webhook", async (req: Request, res: Response) => {
+  console.log("Webhook received:", req.body);
+  res.json({ status: "received" });
+});
+
+// ------------- Test Command Handling --------------
+
+import { commandRouter } from "./agent";
+
+app.post("/command", async (req, res) => {
+  const command = req.body?.command;
+
+  if (!command) {
+  return res.status(400).json({
+    error: "Missing 'command' in request body",
+  });
+}
+
+
+  await commandRouter.handle(command, {
+    replyMessage: async (msg: string) => {
+      console.log("AGENT:", msg);
+    },
+  });
+
+  res.json({ ok: true });
+});
+
+// --------------------------------------------------
+
+
+const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
-  console.log(`Webhook server listening on http://localhost:${PORT}`);
+  console.log(`Server running on http://localhost:${PORT}`);
 });
