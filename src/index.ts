@@ -19,26 +19,51 @@ app.post("/webhook", async (req: Request, res: Response) => {
 
 import { commandRouter } from "./agent";
 
+// app.post("/command", async (req, res) => {
+//   const command = req.body?.command;
+
+//   if (!command) {
+//   return res.status(400).json({
+//     error: "Missing 'command' in request body",
+//   });
+// }
+
+
+//   await commandRouter.handle(command, {
+//     replyMessage: async (msg: string) => {
+//       console.log("AGENT:", msg);
+//     },
+//   });
+
+//   res.json({ ok: true });
+// });
+
+// --------------------------------------------------
+
+import { userStore } from "./state/userStore";
+
 app.post("/command", async (req, res) => {
   const command = req.body?.command;
+  const userId = req.body?.userId ?? "local-dev-user";
 
   if (!command) {
-  return res.status(400).json({
-    error: "Missing 'command' in request body",
-  });
-}
+    return res.status(400).json({
+      error: "Missing 'command' in request body",
+    });
+  }
 
+  const user = userStore.get(userId);
 
   await commandRouter.handle(command, {
+    userId: user.userId,
+    riskProfile: user.riskProfile,
     replyMessage: async (msg: string) => {
-      console.log("AGENT:", msg);
+      console.log(`AGENT [${userId}]:`, msg);
     },
   });
 
   res.json({ ok: true });
 });
-
-// --------------------------------------------------
 
 
 const PORT = process.env.PORT || 3001;
