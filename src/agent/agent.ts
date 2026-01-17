@@ -1,20 +1,21 @@
 import { CommandHandler } from "./types";
-import { agentState } from "./state";
-
-import { startCommand } from "../commands/start";
+import { strategyCommand } from "../commands/strategy";
 import { setRiskCommand } from "../commands/setRisk";
 
-import { strategyCommand } from "../commands/strategy";
+const commands = new Map<string, CommandHandler>();
 
-const commands: Record<string, CommandHandler> = {
-  start: startCommand,
-  "set-risk": setRiskCommand,
-  strategy: strategyCommand,
+const agentState = {
+  riskProfile: undefined as "low" | "medium" | "high" | undefined,
 };
 
+commands.set("strategy", strategyCommand);
+commands.set("set-risk", setRiskCommand);
 
-export async function handleCommand(command: string, payload?: any) {
-  const handler = commands[command];
+export async function handleCommand(
+  command: string,
+  payload?: any
+): Promise<string> {
+  const handler = commands.get(command);
 
   if (!handler) {
     throw new Error(`Unknown command: ${command}`);
@@ -23,6 +24,6 @@ export async function handleCommand(command: string, payload?: any) {
   return handler({
     state: agentState,
     payload,
-    reply: (msg: string) => msg,
+    reply: (message: string) => message,
   });
 }

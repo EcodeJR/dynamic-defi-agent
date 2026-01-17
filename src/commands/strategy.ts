@@ -1,69 +1,58 @@
-import { CommandHandler } from "../agent/types";
+import { CommandContext } from "../agent/types";
+import { generateStrategy } from "../strategy/generator";
+import { StrategyGoal } from "../strategy/types";
 
-type StrategyGoal = "yield" | "farming" | "leverage";
+const VALID_GOALS: StrategyGoal[] = [
+  "capital_preservation",
+  "yield_generation",
+  "balanced_growth",
+  "aggressive_growth",
+];
 
-const riskPermissions: Record<string, StrategyGoal[]> = {
-  low: ["yield"],
-  medium: ["yield", "farming"],
-  high: ["yield", "farming", "leverage"],
-};
-
-const baseScores: Record<StrategyGoal, number> = {
-  yield: 40,
-  farming: 65,
-  leverage: 85,
-};
-
-export const strategyCommand: CommandHandler = async ({
+export async function strategyCommand({
   state,
   payload,
   reply,
-}) => {
+}: CommandContext): Promise<string> {
+  const goal = payload?.goal as StrategyGoal;
+
+  if (!goal || !VALID_GOALS.includes(goal)) {
+    return reply(
+      "❌ Invalid strategy goal.\n\n" +
+        "Valid options:\n" +
+        "- capital_preservation\n" +
+        "- yield_generation\n" +
+        "- balanced_growth\n" +
+        "- aggressive_growth"
+    );
+  }
+
   if (!state.riskProfile) {
     return reply("⚠️ Please set your risk profile first using /set-risk.");
   }
 
-  const rawGoal = payload?.goal;
+  const plan = generateStrategy(goal);
 
-  if (
-    rawGoal !== "yield" &&
-    rawGoal !== "farming" &&
-    rawGoal !== "leverage"
-  ) {
-    return reply("❌ Invalid strategy goal. Use: yield | farming | leverage");
+  let response = `📊 Strategy Plan: ${goal.replace("_", " ")}\n\n`;
+  response += `⚠️ Total Risk Score: ${plan.totalRiskScore}\n\n`;
+
+  for (const step of plan.steps) {
+    response += `Step ${step.stepId}\n`;
+    response += `• Action: ${step.action}\n`;
+    response += `• Asset: ${step.asset}\n`;
+    response += `• Amount: ${step.amount}%\n`;
+    response += `• Risk: ${step.riskScore}\n`;
+    response += `• Why: ${step.description}\n`;
+
+    if (step.exampleProtocols) {
+      response += `• Examples: ${step.exampleProtocols.join(", ")}\n`;
+    }
+
+    response += `\n`;
   }
 
-  // ✅ Type is now safely narrowed
-  const goal: StrategyGoal = rawGoal;
+  response += `🧪 Dry run only. No funds will be moved.`;
 
-  const allowedGoals = riskPermissions[state.riskProfile];
-
-  if (!allowedGoals.includes(goal)) {
-    return reply(
-      `🚫 Strategy "${goal}" is not allowed for **${state.riskProfile}** risk profile.`
-    );
-  }
-
-  // ---- Strategy Scoring ----
-  let score = baseScores[goal];
-  let complexity: "low" | "medium" | "high" = "low";
-
-  if (goal === "farming") complexity = "medium";
-  if (goal === "leverage") complexity = "high";
-
-  if (state.riskProfile === "medium" && goal === "leverage") {
-    score -= 15;
-  }
-
-  score = Math.max(0, Math.min(100, score));
-
-  return reply(
-    `📊 Strategy Preview\n\n` +
-      `• Goal: ${goal}\n` +
-      `• Asset: ${payload?.asset ?? "not specified"}\n` +
-      `• Protocol: ${payload?.protocol ?? "not specified"}\n\n` +
-      `🧮 Risk Score: ${score}/100\n` +
-      `⚙️ Complexity: ${complexity}\n\n` +
-      `🧪 Dry run only. No funds will be moved.`
-  );
-};
+  reply(response);
+  return response;
+}

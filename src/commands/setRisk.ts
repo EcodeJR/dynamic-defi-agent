@@ -1,12 +1,12 @@
-import { CommandHandler, RiskProfile } from "../agent/types";
+import { CommandHandler } from "../agent/types";
 
-export const setRiskCommand: CommandHandler = async ({ state, payload, reply }) => {
-  const risk = payload?.risk as RiskProfile;
+export const setRiskCommand: CommandHandler = async ({ payload, state }) => {
+  const risk = payload?.risk;
 
-  if (!risk || !["low", "medium", "high"].includes(risk)) {
-    return reply("❌ Invalid risk profile. Use: low | medium | high");
+  if (risk !== "low" && risk !== "medium" && risk !== "high") {
+    return "❌ Invalid risk level. Use: low | medium | high";
   }
 
   state.riskProfile = risk;
-  return reply(`✅ Risk profile set to **${risk}**`);
+  return `✅ Risk profile set to ${risk}`;
 };
