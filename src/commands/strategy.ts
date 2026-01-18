@@ -3,6 +3,7 @@ import { generateStrategy } from "../strategy/generator";
 import { validateStrategy } from "../strategy/validator";
 import { scoreStrategy } from "../strategy/scorer";
 import { StrategyGoal } from "../strategy/types";
+import { simulateStrategy } from "../strategy/simulator";
 
 export const strategyCommand: CommandHandler = async ({
   state,
@@ -31,6 +32,8 @@ export const strategyCommand: CommandHandler = async ({
     state.riskProfile
   );
 
+  const simulation = simulateStrategy(goal, state.riskProfile);
+
   // Step 4: Build response
   let response = `📊 Strategy Analysis\n`;
   response += `━━━━━━━━━━━━━━━━━━\n`;
@@ -52,6 +55,16 @@ export const strategyCommand: CommandHandler = async ({
     response += `• Allocation: ${step.amount}%\n`;
     response += `• Risk: ${step.riskScore}\n`;
   }
+
+  // Step 5: Simulation output
+
+  response += `\n📉 Simulation Results\n`;
+  response += `━━━━━━━━━━━━━━━━━━\n`;
+  response += `📈 Estimated APY: ${simulation.estimatedAPY}%\n`;
+  response += `📉 Max Drawdown: ${simulation.maxDrawdown}%\n`;
+  response += `📊 Volatility: ${simulation.volatility}\n`;
+  response += `⏳ Time Horizon: ${simulation.horizon}\n`;
+  response += `⚠️ Risk Level: ${simulation.riskLevel}\n`;
 
   response += `\n⚠️ Simulation only — no funds moved.`;
 
