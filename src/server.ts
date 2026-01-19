@@ -11,21 +11,42 @@ const PORT = process.env.PORT || 3001;
 
 app.use(bodyParser.json());
 
+// Middleware
+app.use(express.json());
+
+// Health check
+app.get("/", (_, res) => {
+  res.json({ status: "ok", service: "Strategy Agent API" });
+});
+
+// Command endpoint
 app.post("/command", async (req, res) => {
-  const { command, payload } = req.body ?? {};
-
-  if (!command) {
-    return res.status(400).json({ error: "Missing command" });
-  }
-
   try {
+    const { command, payload } = req.body;
+
+    if (!command) {
+      return res.status(400).json({
+        error: "Missing command",
+      });
+    }
+
     const response = await handleCommand(command, payload);
-    res.json({ ok: true, response });
+
+    return res.json({
+      ok: true,
+      response,
+    });
   } catch (err: any) {
-    res.status(400).json({ error: err.message });
+    console.error("❌ Command Error:", err);
+
+    return res.status(500).json({
+      ok: false,
+      error: err?.message || "Internal server error",
+    });
   }
 });
 
+// Start server
 app.listen(PORT, () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`);
 });
