@@ -2,8 +2,9 @@ import { CommandHandler } from "../agent/types";
 import { generateStrategy } from "../strategy/generator";
 import { validateStrategy } from "../strategy/validator";
 import { scoreStrategy } from "../strategy/scorer";
-import { StrategyGoal } from "../strategy/types";
 import { simulateStrategy } from "../strategy/simulator";
+import { buildExecutionIntent } from "../strategy/executionEngine";
+import { StrategyGoal } from "../strategy/types";
 
 export const strategyCommand: CommandHandler = async ({
   state,
@@ -32,9 +33,17 @@ export const strategyCommand: CommandHandler = async ({
     state.riskProfile
   );
 
+  // Step 4: Simulate
   const simulation = simulateStrategy(goal, state.riskProfile);
 
-  // Step 4: Build response
+  // Step 5: Execution readiness
+  const execution = buildExecutionIntent(
+    goal,
+    state.riskProfile,
+    plan
+  );
+
+  // Step 6: Build response
   let response = `📊 Strategy Analysis\n`;
   response += `━━━━━━━━━━━━━━━━━━\n`;
   response += `🎯 Goal: ${goal}\n`;
@@ -56,8 +65,6 @@ export const strategyCommand: CommandHandler = async ({
     response += `• Risk: ${step.riskScore}\n`;
   }
 
-  // Step 5: Simulation output
-
   response += `\n📉 Simulation Results\n`;
   response += `━━━━━━━━━━━━━━━━━━\n`;
   response += `📈 Estimated APY: ${simulation.estimatedAPY}%\n`;
@@ -65,6 +72,19 @@ export const strategyCommand: CommandHandler = async ({
   response += `📊 Volatility: ${simulation.volatility}\n`;
   response += `⏳ Time Horizon: ${simulation.horizon}\n`;
   response += `⚠️ Risk Level: ${simulation.riskLevel}\n`;
+
+  response += `\n🚀 Execution Readiness\n`;
+  response += `━━━━━━━━━━━━━━━━━━\n`;
+  response += `Status: ${execution.readiness.toUpperCase()}\n`;
+
+  if (execution.warnings.length > 0) {
+    response += `⚠️ Warnings:\n`;
+    for (const w of execution.warnings) {
+      response += `• ${w}\n`;
+    }
+  } else {
+    response += `✅ Ready for execution pipeline\n`;
+  }
 
   response += `\n⚠️ Simulation only — no funds moved.`;
 
