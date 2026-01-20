@@ -4,6 +4,7 @@ import { validateStrategy } from "../strategy/validator";
 import { scoreStrategy } from "../strategy/scorer";
 import { simulateStrategy } from "../strategy/simulator";
 import { buildExecutionIntent } from "../strategy/executionEngine";
+import { executeStrategy } from "../strategy/executor";
 import { StrategyGoal } from "../strategy/types";
 
 export const strategyCommand: CommandHandler = async ({
@@ -28,22 +29,22 @@ export const strategyCommand: CommandHandler = async ({
   const plan = generateStrategy(goal, state.riskProfile);
 
   // Step 3: Score
-  const { score, reasoning } = scoreStrategy(
-    goal,
-    state.riskProfile
-  );
+  const { score, reasoning } = scoreStrategy(goal, state.riskProfile);
 
   // Step 4: Simulate
   const simulation = simulateStrategy(goal, state.riskProfile);
 
-  // Step 5: Execution readiness
+  // Step 5: Build execution intent
   const execution = buildExecutionIntent(
     goal,
     state.riskProfile,
     plan
   );
 
-  // Step 6: Build response
+  // ✅ Step 6: Execute (SAFE — simulated)
+  const executionResult = await executeStrategy(execution);
+
+  // Step 7: Build response
   let response = `📊 Strategy Analysis\n`;
   response += `━━━━━━━━━━━━━━━━━━\n`;
   response += `🎯 Goal: ${goal}\n`;
@@ -56,7 +57,6 @@ export const strategyCommand: CommandHandler = async ({
   }
 
   response += `\n📋 Execution Plan:\n`;
-
   for (const step of plan.steps) {
     response += `\nStep ${step.stepId}\n`;
     response += `• Action: ${step.action}\n`;
@@ -77,13 +77,32 @@ export const strategyCommand: CommandHandler = async ({
   response += `━━━━━━━━━━━━━━━━━━\n`;
   response += `Status: ${execution.readiness.toUpperCase()}\n`;
 
-  if (execution.warnings.length > 0) {
-    response += `⚠️ Warnings:\n`;
-    for (const w of execution.warnings) {
-      response += `• ${w}\n`;
+  response += `\n⚙️ Execution Simulation\n`;
+  response += `━━━━━━━━━━━━━━━━━━\n`;
+
+  if (executionResult.status === "success") {
+    response += `✅ Executed Steps:\n`;
+    executionResult.executedSteps.forEach(step => {
+      response += `• ${step}\n`;
+    });
+
+    if (executionResult.skippedSteps.length > 0) {
+      response += `\n⚠️ Skipped Steps:\n`;
+      executionResult.skippedSteps.forEach(step => {
+        response += `• ${step}\n`;
+      });
     }
   } else {
-    response += `✅ Ready for execution pipeline\n`;
+    response += `❌ Execution blocked: ${executionResult.reason}\n`;
+  }
+
+  if (execution.warnings.length > 0) {
+    response += `\n⚠️ Warnings:\n`;
+    execution.warnings.forEach(w => {
+      response += `• ${w}\n`;
+    });
+  } else {
+    response += `\n✅ Ready for execution pipeline\n`;
   }
 
   response += `\n⚠️ Simulation only — no funds moved.`;
