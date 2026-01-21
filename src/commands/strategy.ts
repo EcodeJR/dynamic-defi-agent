@@ -1,3 +1,4 @@
+import { randomUUID } from "crypto";
 import { CommandHandler } from "../agent/types";
 import { generateStrategy } from "../strategy/generator";
 import { validateStrategy } from "../strategy/validator";
@@ -6,6 +7,8 @@ import { simulateStrategy } from "../strategy/simulator";
 import { buildExecutionIntent } from "../strategy/executionEngine";
 import { executeStrategy } from "../strategy/executor";
 import { StrategyGoal } from "../strategy/types";
+import { saveStrategy } from "../memory";
+import { runAIReasoning } from "../ai";
 
 export const strategyCommand: CommandHandler = async ({
   state,
@@ -33,6 +36,14 @@ export const strategyCommand: CommandHandler = async ({
 
   // Step 4: Simulate
   const simulation = simulateStrategy(goal, state.riskProfile);
+
+  // Step 4.5: AI Reasoning
+  const aiAnalysis = runAIReasoning({
+  goal,
+  riskProfile: state.riskProfile,
+  plan,
+  simulation,
+});
 
   // Step 5: Build execution intent
   const execution = buildExecutionIntent(
@@ -82,13 +93,13 @@ export const strategyCommand: CommandHandler = async ({
 
   if (executionResult.status === "success") {
     response += `✅ Executed Steps:\n`;
-    executionResult.executedSteps.forEach(step => {
+    executionResult.executedSteps.forEach((step: string) => {
       response += `• ${step}\n`;
     });
 
     if (executionResult.skippedSteps.length > 0) {
       response += `\n⚠️ Skipped Steps:\n`;
-      executionResult.skippedSteps.forEach(step => {
+      executionResult.skippedSteps.forEach((step: string) => {
         response += `• ${step}\n`;
       });
     }
@@ -106,6 +117,39 @@ export const strategyCommand: CommandHandler = async ({
   }
 
   response += `\n⚠️ Simulation only — no funds moved.`;
+
+
+  response += `\n🧠 AI Reasoning\n`;
+  response += `━━━━━━━━━━━━━━━━━━\n`;
+  response += `Summary: ${aiAnalysis.summary}\n\n`;
+
+  response += `Strengths:\n`;
+  aiAnalysis.strengths.forEach(s => {
+    response += `• ${s}\n`;
+  });
+
+  if (aiAnalysis.risks.length > 0) {
+    response += `\nRisks:\n`;
+    aiAnalysis.risks.forEach(r => {
+      response += `• ${r}\n`;
+    });
+  }
+
+  response += `\n🧭 Recommendation: ${aiAnalysis.recommendation.toUpperCase()}\n`;
+
+  // Save strategy record to memory
+  saveStrategy({
+    id: randomUUID(),
+    goal,
+    riskProfile: state.riskProfile,
+    plan,
+    simulation,
+    execution,
+    status: execution.readiness === "ready" ? "simulated" : "failed",
+    createdAt: Date.now(),
+  });
+
+
 
   return response;
 };
