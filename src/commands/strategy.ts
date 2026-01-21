@@ -9,6 +9,10 @@ import { executeStrategy } from "../strategy/executor";
 import { StrategyGoal } from "../strategy/types";
 import { saveStrategy } from "../memory";
 import { runAIReasoning } from "../ai";
+import { simulateWallet } from "../wallet";
+import { executeWithWallet } from "../wallet";
+
+
 
 export const strategyCommand: CommandHandler = async ({
   state,
@@ -52,6 +56,8 @@ export const strategyCommand: CommandHandler = async ({
     plan
   );
 
+  const wallet = simulateWallet();
+  const walletResult = executeWithWallet(wallet, execution);
   // ✅ Step 6: Execute (SAFE — simulated)
   const executionResult = await executeStrategy(execution);
 
@@ -136,6 +142,22 @@ export const strategyCommand: CommandHandler = async ({
   }
 
   response += `\n🧭 Recommendation: ${aiAnalysis.recommendation.toUpperCase()}\n`;
+
+  //Wallet Simulation
+  response += `\n👛 Wallet Simulation\n`;
+  response += `━━━━━━━━━━━━━━━━━━\n`;
+  response += `Wallet: ${wallet.address}\n`;
+  response += `Chain: ${wallet.chain}\n\n`;
+
+  if (walletResult.success) {
+    response += `✅ Wallet Actions:\n`;
+    walletResult.logs.forEach(log => {
+      response += `• ${log}\n`;
+    });
+  } else {
+    response += `❌ Wallet execution blocked\n`;
+  }
+
 
   // Save strategy record to memory
   saveStrategy({
