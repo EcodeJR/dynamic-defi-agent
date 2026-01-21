@@ -38,7 +38,7 @@ export const strategyCommand: CommandHandler = async ({
   const simulation = simulateStrategy(goal, state.riskProfile);
 
   // Step 4.5: AI Reasoning
-  const aiAnalysis = runAIReasoning({
+  const aiAnalysis = await runAIReasoning({
   goal,
   riskProfile: state.riskProfile,
   plan,

@@ -1,6 +1,6 @@
 export interface AIReasoningInput {
   goal: string;
-  riskProfile: string;
+  riskProfile: "low" | "medium" | "high";
   plan: any;
   simulation: any;
 }

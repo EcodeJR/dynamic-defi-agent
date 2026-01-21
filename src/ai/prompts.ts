@@ -1,22 +1,30 @@
 import { AIReasoningInput } from "./types";
 
-export function buildStrategyPrompt(data: AIReasoningInput): string {
+export function buildPrompt(data: AIReasoningInput): string {
   return `
-You are a DeFi risk analysis AI.
+You are a DeFi strategy analyst AI.
 
-Goal: ${data.goal}
-Risk Profile: ${data.riskProfile}
+Analyze the following strategy and respond in JSON format.
 
-Strategy:
+GOAL:
+${data.goal}
+
+RISK PROFILE:
+${data.riskProfile}
+
+STRATEGY:
 ${JSON.stringify(data.plan, null, 2)}
 
-Simulation:
+SIMULATION:
 ${JSON.stringify(data.simulation, null, 2)}
 
-Provide:
-1. Summary
-2. Strengths
-3. Risks
-4. Recommendation (proceed / caution / reject)
+Return ONLY valid JSON:
+
+{
+  "summary": "...",
+  "strengths": ["...", "..."],
+  "risks": ["...", "..."],
+  "recommendation": "proceed | caution | reject"
+}
 `;
 }
