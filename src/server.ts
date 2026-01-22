@@ -3,6 +3,9 @@ import bodyParser from "body-parser";
 import dotenv from "dotenv";
 
 import { handleCommand } from "./agent/agent";
+import { connectDB } from "./db/connect";
+
+connectDB();
 
 dotenv.config();
 

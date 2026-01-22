@@ -9,8 +9,9 @@ import { executeStrategy } from "../strategy/executor";
 import { StrategyGoal } from "../strategy/types";
 import { saveStrategy } from "../memory";
 import { runAIReasoning } from "../ai";
-import { simulateWallet } from "../wallet";
-import { executeWithWallet } from "../wallet";
+import { simulateWallet, executeWithWallet } from "../wallet";
+
+import { StrategyModel } from "../db/models/Strategy";
 
 
 
@@ -55,11 +56,22 @@ export const strategyCommand: CommandHandler = async ({
     state.riskProfile,
     plan
   );
+ // ✅ Step 6: Execute (SAFE — simulated)
+  const executionResult = await executeStrategy(execution);
 
   const wallet = simulateWallet();
   const walletResult = executeWithWallet(wallet, execution);
-  // ✅ Step 6: Execute (SAFE — simulated)
-  const executionResult = await executeStrategy(execution);
+ 
+  await StrategyModel.create({
+    goal,
+    riskProfile: state.riskProfile,
+    plan,
+    simulation,
+    execution,
+    aiSummary: aiAnalysis.summary,
+    aiRecommendation: aiAnalysis.recommendation,
+    status: execution.readiness === "ready" ? "simulated" : "failed",
+  });
 
   // Step 7: Build response
   let response = `📊 Strategy Analysis\n`;
