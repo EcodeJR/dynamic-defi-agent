@@ -48,5 +48,14 @@ export function simulateStrategy(
         maxDrawdown: 35,
         horizon: "short",
       };
+
+    default:
+      return {
+        estimatedAPY: 0,
+        riskLevel: risk,
+        volatility: 0,
+        maxDrawdown: 0,
+        horizon: "short",
+      };
   }
 }
