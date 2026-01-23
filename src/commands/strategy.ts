@@ -43,12 +43,25 @@ export const strategyCommand: CommandHandler = async ({
   const simulation = simulateStrategy(goal, state.riskProfile);
 
   // Step 4.5: AI Reasoning
-  const aiAnalysis = await runAIReasoning({
+ const aiResult = await runAIReasoning({
   goal,
   riskProfile: state.riskProfile,
   plan,
   simulation,
 });
+
+// ✅ SAVE TO DATABASE
+// await StrategyModel.create({
+//   userId: "demo-user",
+//   goal,
+//   riskProfile: state.riskProfile,
+//   simulation,
+//   ai: {
+//     summary: aiResult.summary,
+//     recommendation: aiResult.recommendation,
+//   },
+// });
+
 
   // Step 5: Build execution intent
   const execution = buildExecutionIntent(
@@ -63,15 +76,19 @@ export const strategyCommand: CommandHandler = async ({
   const walletResult = executeWithWallet(wallet, execution);
  
   await StrategyModel.create({
+    userId: "demo-user",
     goal,
     riskProfile: state.riskProfile,
     plan,
     simulation,
     execution,
-    aiSummary: aiAnalysis.summary,
-    aiRecommendation: aiAnalysis.recommendation,
+    ai: {
+      summary: aiResult.summary,
+      recommendation: aiResult.recommendation,
+    },
     status: execution.readiness === "ready" ? "simulated" : "failed",
   });
+
 
   // Step 7: Build response
   let response = `📊 Strategy Analysis\n`;
@@ -139,21 +156,21 @@ export const strategyCommand: CommandHandler = async ({
 
   response += `\n🧠 AI Reasoning\n`;
   response += `━━━━━━━━━━━━━━━━━━\n`;
-  response += `Summary: ${aiAnalysis.summary}\n\n`;
+  response += `Summary: ${aiResult.summary}\n\n`;
 
   response += `Strengths:\n`;
-  aiAnalysis.strengths.forEach(s => {
+  aiResult.strengths.forEach(s => {
     response += `• ${s}\n`;
   });
 
-  if (aiAnalysis.risks.length > 0) {
+  if (aiResult.risks.length > 0) {
     response += `\nRisks:\n`;
-    aiAnalysis.risks.forEach(r => {
+    aiResult.risks.forEach(r => {
       response += `• ${r}\n`;
     });
   }
 
-  response += `\n🧭 Recommendation: ${aiAnalysis.recommendation.toUpperCase()}\n`;
+  response += `\n🧭 Recommendation: ${aiResult.recommendation.toUpperCase()}\n`;
 
   //Wallet Simulation
   response += `\n👛 Wallet Simulation\n`;

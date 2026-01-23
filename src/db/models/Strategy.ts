@@ -1,20 +1,35 @@
-import mongoose from "mongoose";
+import mongoose, { Schema, Document } from "mongoose";
 
-const StrategySchema = new mongoose.Schema({
-  goal: String,
-  riskProfile: String,
+export interface StrategyDocument extends Document {
+  userId: string;
+  goal: string;
+  riskProfile: string;
+  simulation: {
+    estimatedAPY: number;
+    volatility: number;
+    maxDrawdown: number;
+  };
+  ai: {
+    summary: string;
+    recommendation: string;
+  };
+  createdAt: Date;
+}
 
-  plan: Object,
-  simulation: Object,
-  execution: Object,
+const StrategySchema = new Schema<StrategyDocument>({
+  userId: { type: String, required: true },
+  goal: { type: String, required: true },
+  riskProfile: { type: String, required: true },
 
-  aiSummary: String,
-  aiRecommendation: String,
+  simulation: {
+    estimatedAPY: Number,
+    volatility: Number,
+    maxDrawdown: Number,
+  },
 
-  status: {
-    type: String,
-    enum: ["simulated", "executed", "failed"],
-    default: "simulated",
+  ai: {
+    summary: String,
+    recommendation: String,
   },
 
   createdAt: {
@@ -23,7 +38,6 @@ const StrategySchema = new mongoose.Schema({
   },
 });
 
-export const StrategyModel = mongoose.model(
-  "Strategy",
-  StrategySchema
-);
+export const StrategyModel =
+  mongoose.models.Strategy ||
+  mongoose.model<StrategyDocument>("Strategy", StrategySchema);

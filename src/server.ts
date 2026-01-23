@@ -4,6 +4,7 @@ import dotenv from "dotenv";
 
 import { handleCommand } from "./agent/agent";
 import { connectDB } from "./db/connect";
+import { historyCommand } from "./commands/history";
 
 connectDB();
 
@@ -32,6 +33,12 @@ app.post("/command", async (req, res) => {
         error: "Missing command",
       });
     }
+
+    if (command === "history") {
+      const result = await historyCommand();
+      return res.json(result);
+    }
+
 
     const response = await handleCommand(command, payload);
 
