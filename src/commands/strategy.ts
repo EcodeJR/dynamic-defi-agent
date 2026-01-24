@@ -1,19 +1,17 @@
 import { randomUUID } from "crypto";
 import { CommandHandler } from "../agent/types";
-import { generateStrategy } from "../strategy/generator";
+import { StrategyGoal } from "../strategy/types";
+import { generateMultipleStrategies } from "../strategy/multiGenerator";
+import { compareStrategies } from "../strategy/comparator";
 import { validateStrategy } from "../strategy/validator";
-import { scoreStrategy } from "../strategy/scorer";
 import { simulateStrategy } from "../strategy/simulator";
+import { scoreStrategy } from "../strategy/scorer";
 import { buildExecutionIntent } from "../strategy/executionEngine";
 import { executeStrategy } from "../strategy/executor";
-import { StrategyGoal } from "../strategy/types";
-import { saveStrategy } from "../memory";
 import { runAIReasoning } from "../ai";
 import { simulateWallet, executeWithWallet } from "../wallet";
-
 import { StrategyModel } from "../db/models/Strategy";
-
-
+import { saveStrategy } from "../memory";
 
 export const strategyCommand: CommandHandler = async ({
   state,
@@ -22,193 +20,107 @@ export const strategyCommand: CommandHandler = async ({
   const goal = payload?.goal as StrategyGoal;
 
   if (!goal) return "❌ Strategy goal required.";
-
-  if (!state.riskProfile) {
+  if (!state.riskProfile)
     return "⚠️ Please set your risk profile first using /set-risk.";
-  }
 
-  // Step 1: Validate
+  // ✅ Step 1: Validate
   const validation = validateStrategy(goal, state.riskProfile);
-  if (!validation.valid) {
-    return `🚫 Strategy rejected: ${validation.reason}`;
-  }
+  if (!validation.valid) return `🚫 ${validation.reason}`;
 
-  // Step 2: Generate
-  const plan = generateStrategy(goal, state.riskProfile);
-  // Step 4: Simulate
-  const simulation = simulateStrategy(goal, state.riskProfile);
+  // ✅ Step 2: Generate multiple strategies
+  const strategies = generateMultipleStrategies(
+    goal,
+    state.riskProfile
+  );
 
-  
-  // Step 3: Score
-  const scoring = scoreStrategy(
-  goal,
-  state.riskProfile,
-  simulation
-);
+  // ✅ Step 3: Compare strategies
+  const comparison = compareStrategies(
+    goal,
+    state.riskProfile,
+    strategies
+  );
 
-  
+  const best = comparison.best;
 
-  // Step 4.5: AI Reasoning
- const aiResult = await runAIReasoning({
-  goal,
-  riskProfile: state.riskProfile,
-  plan,
-  simulation,
-});
+  // ✅ Step 4: AI Reasoning
+  const aiResult = await runAIReasoning({
+    goal,
+    riskProfile: state.riskProfile,
+    plan: best.plan,
+    simulation: best.simulation,
+  });
 
-// ✅ SAVE TO DATABASE
-// await StrategyModel.create({
-//   userId: "demo-user",
-//   goal,
-//   riskProfile: state.riskProfile,
-//   simulation,
-//   ai: {
-//     summary: aiResult.summary,
-//     recommendation: aiResult.recommendation,
-//   },
-// });
-
-
-  // Step 5: Build execution intent
+  // ✅ Step 5: Build execution
   const execution = buildExecutionIntent(
     goal,
     state.riskProfile,
-    plan
+    best.plan
   );
- // ✅ Step 6: Execute (SAFE — simulated)
+
   const executionResult = await executeStrategy(execution);
 
+  // ✅ Step 6: Wallet simulation
   const wallet = simulateWallet();
   const walletResult = executeWithWallet(wallet, execution);
- 
+
+  const status =
+  execution.readiness === "ready"
+    ? "simulated"
+    : "failed";
+
+  // ✅ Step 7: Save to DB
   await StrategyModel.create({
     userId: "demo-user",
     goal,
     riskProfile: state.riskProfile,
-    plan,
-    simulation,
+    plan: best.plan,
+    simulation: best.simulation,
     execution,
     ai: {
       summary: aiResult.summary,
       recommendation: aiResult.recommendation,
     },
-    status: execution.readiness === "ready" ? "simulated" : "failed",
+    status,
   });
 
-
-  // Step 7: Build response
+  // ✅ Step 8: Build response
   let response = `📊 Strategy Analysis\n`;
   response += `━━━━━━━━━━━━━━━━━━\n`;
   response += `🎯 Goal: ${goal}\n`;
-  response += `⚖️ Risk Profile: ${state.riskProfile}\n`;
-  response += `📊 Strategy Score: ${scoring.score}/100\n`;
-  response += `🧠 Confidence: ${(scoring.confidence * 100).toFixed(1)}%\n\n`;
+  response += `⚖️ Risk: ${state.riskProfile}\n`;
+  response += `🏆 Best Strategy: ${best.type.toUpperCase()}\n`;
+  response += `📈 APY: ${best.simulation.estimatedAPY}%\n`;
+  response += `📉 Drawdown: ${best.simulation.maxDrawdown}%\n`;
+  response += `📊 Score: ${best.score.score}/100\n\n`;
 
-  response += `📌 Score Breakdown:\n`;
-  scoring.reasoning.forEach(r => {
-    response += `• ${r}\n`;
+  response += `🧠 AI Summary:\n${aiResult.summary}\n\n`;
+  response += `🧭 Recommendation: ${aiResult.recommendation}\n\n`;
+
+  response += `📋 Execution Plan:\n`;
+  best.plan.steps.forEach((s: any) => {
+    response += `• ${s.action} → ${s.asset} (${s.amount}%)\n`;
   });
 
-
-  response += `\n📋 Execution Plan:\n`;
-  for (const step of plan.steps) {
-    response += `\nStep ${step.stepId}\n`;
-    response += `• Action: ${step.action}\n`;
-    response += `• Asset: ${step.asset}\n`;
-    response += `• Allocation: ${step.amount}%\n`;
-    response += `• Risk: ${step.riskScore}\n`;
-  }
-
-  response += `\n📉 Simulation Results\n`;
-  response += `━━━━━━━━━━━━━━━━━━\n`;
-  response += `📈 Estimated APY: ${simulation.estimatedAPY}%\n`;
-  response += `📉 Max Drawdown: ${simulation.maxDrawdown}%\n`;
-  response += `📊 Volatility: ${simulation.volatility}\n`;
-  response += `⏳ Time Horizon: ${simulation.horizon}\n`;
-  response += `⚠️ Risk Level: ${simulation.riskLevel}\n`;
-
-  response += `\n🚀 Execution Readiness\n`;
-  response += `━━━━━━━━━━━━━━━━━━\n`;
-  response += `Status: ${execution.readiness.toUpperCase()}\n`;
-
-  response += `\n⚙️ Execution Simulation\n`;
-  response += `━━━━━━━━━━━━━━━━━━\n`;
-
-  if (executionResult.status === "success") {
-    response += `✅ Executed Steps:\n`;
-    executionResult.executedSteps.forEach((step: string) => {
-      response += `• ${step}\n`;
-    });
-
-    if (executionResult.skippedSteps.length > 0) {
-      response += `\n⚠️ Skipped Steps:\n`;
-      executionResult.skippedSteps.forEach((step: string) => {
-        response += `• ${step}\n`;
-      });
-    }
-  } else {
-    response += `❌ Execution blocked: ${executionResult.reason}\n`;
-  }
-
-  if (execution.warnings.length > 0) {
-    response += `\n⚠️ Warnings:\n`;
-    execution.warnings.forEach(w => {
-      response += `• ${w}\n`;
-    });
-  } else {
-    response += `\n✅ Ready for execution pipeline\n`;
-  }
-
-  response += `\n⚠️ Simulation only — no funds moved.`;
-
-
-  response += `\n🧠 AI Reasoning\n`;
-  response += `━━━━━━━━━━━━━━━━━━\n`;
-  response += `Summary: ${aiResult.summary}\n\n`;
-
-  response += `Strengths:\n`;
-  aiResult.strengths.forEach(s => {
-    response += `• ${s}\n`;
-  });
-
-  if (aiResult.risks.length > 0) {
-    response += `\nRisks:\n`;
-    aiResult.risks.forEach(r => {
-      response += `• ${r}\n`;
-    });
-  }
-
-  response += `\n🧭 Recommendation: ${aiResult.recommendation.toUpperCase()}\n`;
-
-  //Wallet Simulation
   response += `\n👛 Wallet Simulation\n`;
-  response += `━━━━━━━━━━━━━━━━━━\n`;
   response += `Wallet: ${wallet.address}\n`;
-  response += `Chain: ${wallet.chain}\n\n`;
 
   if (walletResult.success) {
-    response += `✅ Wallet Actions:\n`;
-    walletResult.logs.forEach(log => {
-      response += `• ${log}\n`;
-    });
+    walletResult.logs.forEach((l) => (response += `• ${l}\n`));
   } else {
-    response += `❌ Wallet execution blocked\n`;
+    response += `❌ Execution blocked\n`;
   }
 
-
-  // Save strategy record to memory
+  // ✅ Save memory
   saveStrategy({
     id: randomUUID(),
     goal,
     riskProfile: state.riskProfile,
-    plan,
-    simulation,
+    plan: best.plan,
+    simulation: best.simulation,
     execution,
-    status: execution.readiness === "ready" ? "simulated" : "failed",
+    status,
     createdAt: Date.now(),
   });
-
-
 
   return response;
 };

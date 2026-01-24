@@ -59,3 +59,8 @@ export interface StrategyPlan {
   totalRiskScore: RiskScore;
   steps: ExecutionStep[];
 }
+
+export type StrategyVariant =
+  | "conservative"
+  | "balanced"
+  | "aggressive";
