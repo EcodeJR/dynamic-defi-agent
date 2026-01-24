@@ -1,34 +1,48 @@
 import { StrategyGoal } from "./types";
 
+type RiskLevel = "low" | "medium" | "high";
+
+interface SimulationResult {
+  estimatedAPY: number;
+  volatility: number;
+  maxDrawdown: number;
+}
+
 export function scoreStrategy(
   goal: StrategyGoal,
-  risk: "low" | "medium" | "high"
-): { score: number; reasoning: string[] } {
-  let score = 50;
-  const reasoning: string[] = [];
+  risk: RiskLevel,
+  simulation: SimulationResult
+) {
+  const weights = {
+    low: { return: 0.7, volatility: 0.8, drawdown: 1.0 },
+    medium: { return: 1.0, volatility: 0.6, drawdown: 0.7 },
+    high: { return: 1.3, volatility: 0.4, drawdown: 0.4 },
+  };
 
-  if (goal === "capital_preservation") {
-    score += risk === "low" ? 30 : -10;
-    reasoning.push("Focuses on capital safety.");
-  }
+  const w = weights[risk];
 
-  if (goal === "yield_generation") {
-    score += risk === "medium" ? 25 : 5;
-    reasoning.push("Balanced yield with manageable risk.");
-  }
+  const rawScore =
+    simulation.estimatedAPY * w.return -
+    simulation.volatility * w.volatility -
+    simulation.maxDrawdown * w.drawdown;
 
-  if (goal === "balanced_growth") {
-    score += risk === "medium" ? 30 : 10;
-    reasoning.push("Optimized for steady growth.");
-  }
+  const score = Math.max(0, Math.min(100, Math.round(rawScore)));
 
-  if (goal === "aggressive_growth") {
-    score += risk === "high" ? 35 : -20;
-    reasoning.push("High-reward strategy with elevated risk.");
-  }
+  const confidence = Math.min(
+    1,
+    score / 100 + (risk === "high" ? 0.1 : 0)
+  );
 
-  // Clamp score
-  score = Math.max(0, Math.min(100, score));
+  const reasoning = [
+    `Expected APY: ${simulation.estimatedAPY}%`,
+    `Volatility impact: -${simulation.volatility * w.volatility}`,
+    `Drawdown impact: -${simulation.maxDrawdown * w.drawdown}`,
+    `Risk profile: ${risk}`,
+  ];
 
-  return { score, reasoning };
+  return {
+    score,
+    confidence,
+    reasoning,
+  };
 }

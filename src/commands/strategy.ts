@@ -35,12 +35,18 @@ export const strategyCommand: CommandHandler = async ({
 
   // Step 2: Generate
   const plan = generateStrategy(goal, state.riskProfile);
-
-  // Step 3: Score
-  const { score, reasoning } = scoreStrategy(goal, state.riskProfile);
-
   // Step 4: Simulate
   const simulation = simulateStrategy(goal, state.riskProfile);
+
+  
+  // Step 3: Score
+  const scoring = scoreStrategy(
+  goal,
+  state.riskProfile,
+  simulation
+);
+
+  
 
   // Step 4.5: AI Reasoning
  const aiResult = await runAIReasoning({
@@ -95,12 +101,14 @@ export const strategyCommand: CommandHandler = async ({
   response += `━━━━━━━━━━━━━━━━━━\n`;
   response += `🎯 Goal: ${goal}\n`;
   response += `⚖️ Risk Profile: ${state.riskProfile}\n`;
-  response += `📈 Confidence Score: ${score}/100\n\n`;
+  response += `📊 Strategy Score: ${scoring.score}/100\n`;
+  response += `🧠 Confidence: ${(scoring.confidence * 100).toFixed(1)}%\n\n`;
 
-  response += `🧠 Reasoning:\n`;
-  for (const reason of reasoning) {
-    response += `• ${reason}\n`;
-  }
+  response += `📌 Score Breakdown:\n`;
+  scoring.reasoning.forEach(r => {
+    response += `• ${r}\n`;
+  });
+
 
   response += `\n📋 Execution Plan:\n`;
   for (const step of plan.steps) {
