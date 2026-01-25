@@ -1,3 +1,3 @@
 export * from "./types";
-export * from "./wallet";
-export * from "./simulator";
+export { WalletExecutionResult, executeWithWallet } from "./wallet";
+export { simulateWallet } from "./simulator";

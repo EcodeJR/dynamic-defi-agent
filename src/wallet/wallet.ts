@@ -4,6 +4,16 @@ import { ExecutionIntent } from "../strategy/executionEngine";
 export interface WalletExecutionResult {
   success: boolean;
   logs: string[];
+  txHash?: string;
+}
+
+export function simulateWallet(): WalletState {
+  return {
+    address: "0xSIMULATED_WALLET",
+    chain: "ethereum",
+    balance: 100000,
+    canExecute: true,
+  };
 }
 
 export function executeWithWallet(
@@ -12,10 +22,10 @@ export function executeWithWallet(
 ): WalletExecutionResult {
   const logs: string[] = [];
 
-  if (execution.readiness !== "ready") {
+  if (!wallet.canExecute || execution.readiness !== "ready") {
     return {
       success: false,
-      logs: ["Execution blocked by readiness check"],
+      logs: ["Execution blocked by safety checks"],
     };
   }
 
@@ -28,5 +38,6 @@ export function executeWithWallet(
   return {
     success: true,
     logs,
+    txHash: "0xSIMULATED_TX_HASH",
   };
 }

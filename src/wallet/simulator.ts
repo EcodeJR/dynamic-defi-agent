@@ -4,9 +4,7 @@ export function simulateWallet(): WalletState {
   return {
     address: "0xSIMULATED_WALLET",
     chain: "ethereum",
-    balances: [
-      { asset: "ETH", amount: 10 },
-      { asset: "USDC", amount: 5000 },
-    ],
+    balance: 100000,
+    canExecute: true,
   };
 }

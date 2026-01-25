@@ -64,3 +64,9 @@ export type StrategyVariant =
   | "conservative"
   | "balanced"
   | "aggressive";
+
+
+export type ExecutionMode =
+  | "simulation"
+  | "dry-run"
+  | "live";
