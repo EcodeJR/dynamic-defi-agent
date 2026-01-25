@@ -4,21 +4,23 @@ import { StrategyGoal } from "../strategy/types";
 import { generateMultipleStrategies } from "../strategy/multiGenerator";
 import { compareStrategies } from "../strategy/comparator";
 import { validateStrategy } from "../strategy/validator";
-import { simulateStrategy } from "../strategy/simulator";
-import { scoreStrategy } from "../strategy/scorer";
 import { buildExecutionIntent } from "../strategy/executionEngine";
 import { executeStrategy } from "../strategy/executor";
 import { runAIReasoning } from "../ai";
 import { simulateWallet, executeWithWallet } from "../wallet";
 import { StrategyModel } from "../db/models/Strategy";
 import { saveStrategy } from "../memory";
+import { logEvent } from "../utils/logger";
+import { rateLimit } from "../middleware/rateLimit";
 
 export const strategyCommand: CommandHandler = async ({
   state,
   payload,
 }) => {
-  const goal = payload?.goal as StrategyGoal;
+  // ✅ Rate limiting
+  rateLimit(state.userId);
 
+  const goal = payload?.goal as StrategyGoal;
   if (!goal) return "❌ Strategy goal required.";
   if (!state.riskProfile)
     return "⚠️ Please set your risk profile first using /set-risk.";
@@ -27,22 +29,21 @@ export const strategyCommand: CommandHandler = async ({
   const validation = validateStrategy(goal, state.riskProfile);
   if (!validation.valid) return `🚫 ${validation.reason}`;
 
-  // ✅ Step 2: Generate multiple strategies
+  // ✅ Step 2: Generate strategies
   const strategies = generateMultipleStrategies(
     goal,
     state.riskProfile
   );
 
-  // ✅ Step 3: Compare strategies
+  // ✅ Step 3: Compare
   const comparison = compareStrategies(
     goal,
     state.riskProfile,
     strategies
   );
-
   const best = comparison.best;
 
-  // ✅ Step 4: AI Reasoning
+  // ✅ Step 4: AI reasoning
   const aiResult = await runAIReasoning({
     goal,
     riskProfile: state.riskProfile,
@@ -50,25 +51,34 @@ export const strategyCommand: CommandHandler = async ({
     simulation: best.simulation,
   });
 
-  // ✅ Step 5: Build execution
+  // ✅ Execution mode
+  const isDemo = process.env.DEMO_MODE === "true";
+  const executionMode = isDemo ? "simulation" : "live";
+
+  // ✅ Step 5: Build execution intent
   const execution = buildExecutionIntent(
     goal,
     state.riskProfile,
     best.plan
   );
 
-  const executionResult = await executeStrategy(execution);
-
-  // ✅ Step 6: Wallet simulation
+  // ✅ Step 6: Wallet + execution
   const wallet = simulateWallet();
+
+  const executionResult = await executeStrategy(
+    execution,
+    wallet,
+    executionMode
+  );
+
   const walletResult = executeWithWallet(wallet, execution);
 
   const status =
-  execution.readiness === "ready"
-    ? "simulated"
-    : "failed";
+    executionResult.status === "success"
+      ? "simulated"
+      : "failed";
 
-  // ✅ Step 7: Save to DB
+  // ✅ Step 7: Persist strategy
   await StrategyModel.create({
     userId: "demo-user",
     goal,
@@ -76,14 +86,42 @@ export const strategyCommand: CommandHandler = async ({
     plan: best.plan,
     simulation: best.simulation,
     execution,
+
     ai: {
       summary: aiResult.summary,
       recommendation: aiResult.recommendation,
     },
+
+    audit: {
+      generatedAt: Date.now(),
+      aiVersion: "gpt-4.1",
+      executionMode,
+      riskProfile: state.riskProfile,
+    },
+
     status,
   });
 
-  // ✅ Step 8: Build response
+  // ✅ Logging
+  logEvent("INFO", "Strategy executed", {
+    goal,
+    riskProfile: state.riskProfile,
+    status: executionResult.status,
+  });
+
+  // ✅ Save memory
+  saveStrategy({
+    id: randomUUID(),
+    goal,
+    riskProfile: state.riskProfile,
+    plan: best.plan,
+    simulation: best.simulation,
+    execution,
+    status,
+    createdAt: Date.now(),
+  });
+
+  // ✅ Response
   let response = `📊 Strategy Analysis\n`;
   response += `━━━━━━━━━━━━━━━━━━\n`;
   response += `🎯 Goal: ${goal}\n`;
@@ -104,22 +142,8 @@ export const strategyCommand: CommandHandler = async ({
   response += `\n👛 Wallet Simulation\n`;
   response += `Wallet: ${wallet.address}\n`;
 
-  if (walletResult.success) {
-    walletResult.logs.forEach((l) => (response += `• ${l}\n`));
-  } else {
-    response += `❌ Execution blocked\n`;
-  }
-
-  // ✅ Save memory
-  saveStrategy({
-    id: randomUUID(),
-    goal,
-    riskProfile: state.riskProfile,
-    plan: best.plan,
-    simulation: best.simulation,
-    execution,
-    status,
-    createdAt: Date.now(),
+  walletResult.logs.forEach((l) => {
+    response += `• ${l}\n`;
   });
 
   return response;

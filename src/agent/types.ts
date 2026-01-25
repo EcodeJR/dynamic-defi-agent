@@ -1,7 +1,10 @@
 export type RiskProfile = "low" | "medium" | "high";
 
 export interface AgentState {
+  userId: string;
   riskProfile?: RiskProfile;
+  memory?: string[];
+  lastCommand?: string;
 }
 
 export interface CommandContext {
