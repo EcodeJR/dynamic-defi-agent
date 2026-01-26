@@ -1,19 +1,15 @@
-import express from "express";
-import bodyParser from "body-parser";
 import dotenv from "dotenv";
+dotenv.config();
 
+import express from "express";
 import { handleCommand } from "./agent/agent";
 import { connectDB } from "./db/connect";
 import { historyCommand } from "./commands/history";
 
 connectDB();
 
-dotenv.config();
-
 const app = express();
 const PORT = process.env.PORT || 3001;
-
-app.use(bodyParser.json());
 
 // Middleware
 app.use(express.json());

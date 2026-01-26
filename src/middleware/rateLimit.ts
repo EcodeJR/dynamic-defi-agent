@@ -1,11 +1,35 @@
-const requests = new Map<string, number>();
+interface RateLimitEntry {
+  count: number;
+  resetAt: number;
+}
 
-export function rateLimit(userId: string, limit = 10) {
-  const count = requests.get(userId) || 0;
+const requests = new Map<string, RateLimitEntry>();
 
-  if (count >= limit) {
-    throw new Error("Rate limit exceeded");
+export function rateLimit(userId: string | undefined, limit = 10, windowMs = 60000) {
+  if (!userId || userId.trim() === "") {
+    throw new Error("Invalid userId for rate limiting");
   }
 
-  requests.set(userId, count + 1);
+  const now = Date.now();
+  const entry = requests.get(userId);
+
+  // Reset if window expired
+  if (entry && now > entry.resetAt) {
+    requests.delete(userId);
+  }
+
+  const current = requests.get(userId);
+
+  if (current && current.count >= limit) {
+    throw new Error("Rate limit exceeded. Please try again later.");
+  }
+
+  if (current) {
+    current.count += 1;
+  } else {
+    requests.set(userId, {
+      count: 1,
+      resetAt: now + windowMs,
+    });
+  }
 }

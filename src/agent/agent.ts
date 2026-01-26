@@ -5,6 +5,7 @@ import { setRiskCommand } from "../commands/setRisk";
 const commands = new Map<string, CommandHandler>();
 
 const agentState = {
+  userId: "demo-user",
   riskProfile: undefined as "low" | "medium" | "high" | undefined,
 };
 
