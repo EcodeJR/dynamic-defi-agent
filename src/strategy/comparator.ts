@@ -9,7 +9,7 @@ export function compareStrategies(
 ) {
   const evaluated = strategies.map((s) => {
     const simulation = simulateStrategy(goal, s.type);
-    const score = scoreStrategy(goal, s.type, simulation);
+    const score = scoreStrategy(goal, risk, simulation);
 
     return {
       type: s.type,

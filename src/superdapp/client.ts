@@ -10,7 +10,11 @@ export async function initializeClient() {
     const SuperDappClient = getSuperdappClient();
 
     const apiToken = process.env.SUPERDAPP_API_KEY || "";
-    isMockMode = !apiToken || apiToken === "your_api_key_here" || apiToken === "mock";
+    // Explicit mock mode via env var, or fallback to checking placeholder
+    isMockMode = process.env.MOCK_SUPERDAPP === "true" ||
+        !apiToken ||
+        apiToken === "your_api_key_here" ||
+        apiToken === "mock";
 
     if (isMockMode) {
         console.log("⚠️ SuperDapp Client running in MOCK mode (local testing)");
@@ -43,7 +47,13 @@ export async function sendChannelMessage(
     text: string,
     replyMarkup?: any
 ) {
-    if (isMockMode) {
+    const apiToken = process.env.SUPERDAPP_API_KEY || "";
+    const currentMockMode = process.env.MOCK_SUPERDAPP === "true" ||
+        !apiToken ||
+        apiToken === "your_api_key_here" ||
+        apiToken === "mock";
+
+    if (currentMockMode) {
         console.log(`[MOCK] Sending Channel Message to ${channelId}:`);
         console.log(`> Text: ${text}`);
         if (replyMarkup) console.log(`> UI:`, JSON.stringify(replyMarkup, null, 2));
@@ -75,7 +85,13 @@ export async function sendDirectMessage(
     text: string,
     replyMarkup?: any
 ) {
-    if (isMockMode) {
+    const apiToken = process.env.SUPERDAPP_API_KEY || "";
+    const currentMockMode = process.env.MOCK_SUPERDAPP === "true" ||
+        !apiToken ||
+        apiToken === "your_api_key_here" ||
+        apiToken === "mock";
+
+    if (currentMockMode) {
         console.log(`[MOCK] Sending Direct Message to ${userId}:`);
         console.log(`> Text: ${text}`);
         if (replyMarkup) console.log(`> UI:`, JSON.stringify(replyMarkup, null, 2));

@@ -35,21 +35,34 @@ function registerCommands() {
     webhookAgent.addCommand("/help", handleHelpCommand);
 
     // Register a generic callback_query handler for interactive buttons
-    webhookAgent.addCommand("callback_query", async (message: Message) => {
+    const callbackHandler = async (message: Message) => {
+        console.log("📥 Callback handler triggered directly");
         const command = extractCommand(message);
         if (command) {
-            console.log(`🔘 Callback Query detected: ${command}`);
+            console.log(`🔘 Dispatching command from callback: ${command}`);
             // Manually route to the correct command handler
             if (command === "/strategy") await handleStrategyCommand(message);
             else if (command === "/risk" || command === "/set-risk") await handleRiskCommand(message);
             else if (command === "/history") await handleHistoryCommand(message);
             else if (command === "/help") await handleHelpCommand(message);
             else if (command === "/start") await handleStartCommand(message);
+        } else {
+            console.log("⚠️ Failed to extract command from callback message:", JSON.stringify(message.body.m));
         }
-    });
+    };
+
+    webhookAgent.addCommand("callback_query", callbackHandler);
+
+    // Also try to register it directly in the registry if accessible
+    if ((webhookAgent as any).registry) {
+        (webhookAgent as any).registry.registerCommand("callback_query", callbackHandler);
+    }
+
+    const registered = (webhookAgent as any).registry?.getAllCommands?.() || ["unknown"];
+    console.log("📋 Registered SuperDapp Commands:", registered);
 
     logEvent("INFO", "SuperDapp commands registered", {
-        commands: ["/start", "/risk", "/set-risk", "/strategy", "/history", "/help", "callback_query"],
+        commands: registered,
     });
 }
 

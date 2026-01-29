@@ -15,10 +15,19 @@ export function extractCommand(message: Message): string | null {
     }
 
     // Handle callback_query object
-    if (typeof content === "object" && content.body) {
-        const body = content.body as any;
-        if (typeof body === "object" && body.callback_query) {
+    if (typeof content === "object" && content !== null) {
+        // Check nested structure message.body.m.body.callback_query
+        const body = (content as any).body;
+        if (body && typeof body === "object" && body.callback_query) {
             const trimmed = body.callback_query.trim();
+            if (trimmed.startsWith("/")) {
+                return trimmed.split(" ")[0].toLowerCase();
+            }
+        }
+
+        // Fallback: check if content itself has callback_query (depending on SDK version/payload)
+        if ((content as any).callback_query) {
+            const trimmed = (content as any).callback_query.trim();
             if (trimmed.startsWith("/")) {
                 return trimmed.split(" ")[0].toLowerCase();
             }
