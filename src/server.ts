@@ -2,11 +2,11 @@ import dotenv from "dotenv";
 dotenv.config();
 
 import express from "express";
-import { handleCommand } from "./agent/agent";
 import { connectDB } from "./db/connect";
+import { handleCommand } from "./agent/agent";
 import { historyCommand } from "./commands/history";
-
-connectDB();
+import { logEvent } from "./utils/logger";
+import { initializeSuperdappSDK, initializeWebhookAgent, initializeClient, processWebhookRequest } from "./superdapp";
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -15,44 +15,80 @@ const PORT = process.env.PORT || 3001;
 app.use(express.json());
 
 // Health check
-app.get("/", (_, res) => {
+app.get("/", (req, res) => {
   res.json({ status: "ok", service: "Strategy Agent API" });
 });
 
-// Command endpoint
+// SuperDapp webhook endpoint
+app.post("/webhook", async (req, res) => {
+  try {
+    logEvent("INFO", "Webhook request received", {
+      messageId: req.body.id,
+      senderId: req.body.senderId,
+    });
+
+    await processWebhookRequest(req.body);
+
+    res.status(200).json({ success: true });
+  } catch (error: any) {
+    logEvent("ERROR", "Webhook processing error", { error: error.message });
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Legacy command endpoint (for backward compatibility)
 app.post("/command", async (req, res) => {
   try {
-    const { command, payload } = req.body;
+    const { command, userId, payload } = req.body;
 
-    if (!command) {
-      return res.status(400).json({
-        error: "Missing command",
-      });
+    if (!command || !userId) {
+      return res.status(400).json({ error: "Missing command or userId" });
     }
 
+    logEvent("INFO", "Command received", { command, userId });
+
+    let result;
     if (command === "history") {
-      const result = await historyCommand();
-      return res.json(result);
+      result = await historyCommand({ state: { userId }, payload });
+    } else {
+      result = await handleCommand({ state: { userId }, payload: { command, ...payload } });
     }
 
-
-    const response = await handleCommand(command, payload);
-
-    return res.json({
-      ok: true,
-      response,
-    });
-  } catch (err: any) {
-    console.error("❌ Command Error:", err);
-
-    return res.status(500).json({
-      ok: false,
-      error: err?.message || "Internal server error",
-    });
+    res.json(result);
+  } catch (error: any) {
+    logEvent("ERROR", "Command error", { error: error.message });
+    res.status(500).json({ error: error.message });
   }
 });
 
 // Start server
-app.listen(PORT, () => {
-  console.log(`🚀 Server running on http://localhost:${PORT}`);
-});
+async function startServer() {
+  try {
+    // 1. Connect database
+    await connectDB();
+
+    // 2. Initialize SuperDapp SDK (Dynamic import for ESM compatibility)
+    await initializeSuperdappSDK();
+
+    // 3. Initialize SuperDapp API Client
+    await initializeClient();
+
+    // 4. Initialize SuperDapp Webhook Agent
+    await initializeWebhookAgent();
+
+    logEvent("INFO", "SuperDapp system initialized");
+
+    app.listen(PORT, () => {
+      logEvent("INFO", "Server started", { port: PORT });
+      console.log(`✅ Server running on http://localhost:${PORT}`);
+      console.log(`📡 Webhook endpoint: http://localhost:${PORT}/webhook`);
+      console.log(`🔧 Legacy API: http://localhost:${PORT}/command`);
+    });
+  } catch (error: any) {
+    logEvent("ERROR", "Server startup failed", { error: error.message });
+    console.error("❌ Failed to start server:", error);
+    process.exit(1);
+  }
+}
+
+startServer();

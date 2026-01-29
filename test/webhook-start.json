@@ -1,0 +1,12 @@
+{
+    "id": "test-message-001",
+    "senderId": "test-user-123",
+    "memberId": "test-user-123",
+    "body": {
+        "t": "channel",
+        "m": "/start"
+    },
+    "timestamp": "2026-01-27T20:00:00Z",
+    "isBot": false,
+    "channelId": "test-channel-001"
+}
