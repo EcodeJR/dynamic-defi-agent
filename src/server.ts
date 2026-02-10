@@ -20,21 +20,39 @@ app.get("/", (req, res) => {
 });
 
 // SuperDapp webhook endpoint
-app.post("/webhook", async (req, res) => {
+// Shared Webhook Handler
+const webhookHandler = async (req: express.Request, res: express.Response) => {
   try {
+    console.log("📥 Raw Webhook Payload:", JSON.stringify(req.body, null, 2));
+
+    // Robustly handle stringified body from live webhooks
+    const payload = { ...req.body };
+    if (typeof payload.body === 'string') {
+      try {
+        payload.body = JSON.parse(payload.body);
+        console.log("✅ Parsed nested body field successfully");
+      } catch (e) {
+        console.log("⚠️ Failed to parse nested body field");
+      }
+    }
+
     logEvent("INFO", "Webhook request received", {
-      messageId: req.body.id,
-      senderId: req.body.senderId,
+      messageId: payload.id,
+      senderId: payload.senderId,
     });
 
-    await processWebhookRequest(req.body);
+    await processWebhookRequest(payload);
 
     res.status(200).json({ success: true });
   } catch (error: any) {
     logEvent("ERROR", "Webhook processing error", { error: error.message });
     res.status(500).json({ error: error.message });
   }
-});
+};
+
+// SuperDapp webhook endpoints (Support both /webhook and root /)
+app.post("/webhook", webhookHandler);
+app.post("/", webhookHandler);
 
 // Legacy command endpoint (for backward compatibility)
 app.post("/command", async (req, res) => {

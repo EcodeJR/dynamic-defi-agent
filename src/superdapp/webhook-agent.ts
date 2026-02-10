@@ -100,11 +100,22 @@ export async function initializeWebhookAgent() {
     // Handle non-command messages
     webhookAgent.onMessage(async (message: Message) => {
         const command = extractCommand(message);
+        console.log(`📩 Incoming message detected: command="${command}"`);
+
+        // If command detected, manually dispatch to ensure it runs
+        if (command) {
+            console.log(`⚡ Command detected: ${command}. Manually dispatching...`);
+            if (command === "/start") await handleStartCommand(message);
+            else if (command === "/risk" || command === "/set-risk") await handleRiskCommand(message);
+            else if (command === "/strategy") await handleStrategyCommand(message);
+            else if (command === "/history") await handleHistoryCommand(message);
+            else if (command === "/help") await handleHelpCommand(message);
+            return;
+        }
 
         // If no command detected, handle as generic message
-        if (!command) {
-            await handleGenericMessage(message);
-        }
+        console.log("❓ No command detected, handling as generic message");
+        await handleGenericMessage(message);
     });
 
     logEvent("INFO", "SuperDapp webhook agent initialized");

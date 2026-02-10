@@ -1,37 +1,53 @@
-import { Message, MessageContent } from "@superdapp/agents";
+import { Message } from "@superdapp/agents";
+
+/**
+ * Helper to get parsed content from message
+ */
+function getParsedContent(message: Message): any {
+    const body = message.body;
+    let parsedBody = body;
+
+    if (typeof body === "string") {
+        try {
+            parsedBody = JSON.parse(body);
+        } catch (e) {
+            return body;
+        }
+    }
+
+    const m = (parsedBody as any)?.m;
+    if (typeof m === "string") {
+        // Check if it's URL encoded JSON
+        if (m.includes("%")) {
+            try {
+                return JSON.parse(decodeURIComponent(m));
+            } catch (e) {
+                return m;
+            }
+        }
+        return m;
+    }
+
+    return m || parsedBody;
+}
 
 /**
  * Extract command from SuperDapp message
  */
 export function extractCommand(message: Message): string | null {
-    const content = message.body.m;
+    const content = getParsedContent(message);
 
-    // Handle string content
+    // Handle string content or parsed object with body
+    let text = "";
     if (typeof content === "string") {
-        const trimmed = content.trim();
-        if (trimmed.startsWith("/")) {
-            return trimmed.split(" ")[0].toLowerCase();
-        }
+        text = content;
+    } else if (typeof content === "object" && content !== null) {
+        text = content.body || content.callback_query || "";
     }
 
-    // Handle callback_query object
-    if (typeof content === "object" && content !== null) {
-        // Check nested structure message.body.m.body.callback_query
-        const body = (content as any).body;
-        if (body && typeof body === "object" && body.callback_query) {
-            const trimmed = body.callback_query.trim();
-            if (trimmed.startsWith("/")) {
-                return trimmed.split(" ")[0].toLowerCase();
-            }
-        }
-
-        // Fallback: check if content itself has callback_query (depending on SDK version/payload)
-        if ((content as any).callback_query) {
-            const trimmed = (content as any).callback_query.trim();
-            if (trimmed.startsWith("/")) {
-                return trimmed.split(" ")[0].toLowerCase();
-            }
-        }
+    const trimmed = text.trim();
+    if (trimmed.startsWith("/")) {
+        return trimmed.split(" ")[0].toLowerCase();
     }
 
     return null;
@@ -41,16 +57,14 @@ export function extractCommand(message: Message): string | null {
  * Extract text content from SuperDapp message
  */
 export function extractText(message: Message): string {
-    const content = message.body.m;
+    const content = getParsedContent(message);
 
     if (typeof content === "string") {
         return content;
     }
 
-    if (typeof content === "object" && content.body) {
-        if (typeof content.body === "string") {
-            return content.body;
-        }
+    if (typeof content === "object" && content !== null) {
+        return content.body || "";
     }
 
     return "";
